@@ -415,8 +415,8 @@ call_result_t<ModuleDataPtr> ProcessModules::Inject( const std::wstring& path, T
     if (!modName)
         return modName.status;
 
-    // Write dll name into target process
-    auto fillDllName = [&modName, &path]( auto& ustr )
+    // 修改
+    auto fillDllName32 = [&modName, &path]( _UNICODE_STRING32& ustr )
     {
         ustr.Buffer = modName->ptr<std::decay_t<decltype(ustr)>::type>() + sizeof( ustr );
         ustr.MaximumLength = ustr.Length = static_cast<USHORT>(path.size() * sizeof( wchar_t ));
@@ -427,15 +427,26 @@ call_result_t<ModuleDataPtr> ProcessModules::Inject( const std::wstring& path, T
         return static_cast<uint32_t>(sizeof( ustr ));
     };
 
+     auto fillDllName64 = [&modName, &path]( _UNICODE_STRING64& ustr )
+    {
+        ustr.Buffer = modName->ptr<std::decay_t<decltype(ustr)>::type>() + sizeof( ustr );
+        ustr.MaximumLength = ustr.Length = static_cast<USHORT>(path.size() * sizeof( wchar_t ));
+
+        modName->Write( 0, ustr );
+        modName->Write( sizeof( ustr ), path.size() * sizeof( wchar_t ), path.c_str() );
+
+        return static_cast<uint32_t>(sizeof( ustr ));
+    };
+    
     if (img.mType() == mt_mod32)
     {
         _UNICODE_STRING32 ustr = { 0 };
-        ustrSize = fillDllName( ustr );
+        ustrSize = fillDllName32( ustr );
     }
     else if (img.mType() == mt_mod64)
     {
         _UNICODE_STRING64 ustr = { 0 };
-        ustrSize = fillDllName( ustr );      
+        ustrSize = fillDllName64( ustr );      
     }
     else
         return STATUS_INVALID_IMAGE_FORMAT;
